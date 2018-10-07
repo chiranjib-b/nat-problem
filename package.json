@@ -1,8 +1,17 @@
 {
   "name": "NAT_Problem",
   "version": "1.0.0",
-  "keywords": ["util", "functional", "server", "client", "browser"],
+  "keywords": [
+    "util",
+    "functional",
+    "server",
+    "client",
+    "browser"
+  ],
   "author": "cbhattacharjee",
   "contributors": [],
-  "dependencies": {}
+  "dependencies": {
+    "aws-sdk": "2.329.0",
+    "express": "4.16.3"
+  }
 }
