@@ -1,11 +1,159 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>TODO supply a title</title>
+    <title>NAT Allocation</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<!--script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script-->
+	<script src="jquery-2.1.1.js"></script>
+	<script>
+	  var natInstances = null;
+	  var subnets = null;
+	  var routeTables = null;
+	  function checkNATAllocation() {
+		natInstances = null;
+		subnets = null;
+		routeTables = null;
+		$('#primary-div').html("Checking NAT Allocation");
+		var region = "us-west-2";
+		$.ajax({
+		  type: "POST",
+		  async: true,
+		  dataType: "json",
+		  url: '/fetchNATInstances',
+		  data: {
+			"region" : region
+		  }
+		}).done(function (data) {
+		  if (data.Success){
+			$('#primary-div').append("<br>Fetched NAT instances");
+			var ret = {};
+			natInstances = data.Response;
+			data.Response.Reservations.forEach(r => {
+			  r.Instances.forEach(i => {
+				if (typeof ret[i.Placement.AvailabilityZone] === "undefined"){
+				  ret[i.Placement.AvailabilityZone] = [];
+				}
+				var instanceDetails = {};
+				instanceDetails["Instance ID"] = i.InstanceId;
+				instanceDetails["VPC ID"] = i.VpcId;
+				instanceDetails["Name"] = "";
+				i.Tags.forEach(t => {
+				  if (t.Key === "Name")
+					instanceDetails["Name"] = t.Value;
+				});
+				instanceDetails["State"] = i.Monitoring.State;
+				instanceDetails["Subnet ID"] = i.SubnetId;
+				ret[i.Placement.AvailabilityZone].push(instanceDetails);
+			  });
+			});
+			var vpcList = [];
+			Object.keys(ret).forEach(az => {
+			  ret[az].forEach(instance => {
+				if (vpcList.indexOf(instance['VPC ID']) === -1)
+				  vpcList.push(instance['VPC ID']);
+			  });
+			});
+			fetchSubnets(region, vpcList);
+		  }
+		  else {
+			$('#primary-div').append("<br>Failed to fetch NAT instance details!");
+		  }
+		}).fail(function (jqXHR, textStatus, errorThrown) {
+		  $('#primary-div').append("<br>Failed to fetch NAT instance details!");
+		});
+	  }
+	  
+	  function fetchSubnets(region, vpcList){
+		$.ajax({
+		  type: "POST",
+		  async: true,
+		  dataType: "json",
+		  url: '/fetchSubnets',
+		  data: {
+			"region" : region,
+			"vpc_list" : vpcList
+		  }
+		}).done(function (data) {
+		  if (data.Success){
+			var ret = {};
+			$('#primary-div').append("<br>Fetched subnets.");
+			subnets = data.Response;
+			data.Response.Subnets.forEach(s => {
+			  if (typeof ret[s.AvailabilityZone] === "undefined"){
+				ret[s.AvailabilityZone] = [];
+			  }
+			  var subnetDetails = {};
+			  subnetDetails['Subnet ID'] = s.SubnetId;
+			  subnetDetails['VPC ID'] = s.VpcId;
+			  subnetDetails['Name'] = "";
+			  subnetDetails['State'] = s.State;
+			  s.Tags.forEach(t => {
+				if (t.Key === "Name")
+				  subnetDetails["Name"] = t.Value;
+			  });
+			  ret[s.AvailabilityZone].push(subnetDetails);
+			});
+			fetchRouteTables(region, vpcList);
+		  } else {
+			$('#primary-div').append("<br>Failed to fetch subnet details!");
+		  }
+		}).fail(function (jqXHR, textStatus, errorThrown) {
+		  $('#primary-div').append("<br>Failed to fetch subnet details!");
+		});
+	  }
+	  
+	  function fetchRouteTables(region, vpcList){
+		$.ajax({
+		  type: "POST",
+		  async: true,
+		  dataType: "json",
+		  url: '/fetchRouteTables',
+		  data: {
+			"region" : region,
+			"vpc_list" : vpcList
+		  }
+		}).done(function (data) {
+		  if (data.Success){
+			$('#primary-div').append("<br>Fetched route tables.");
+			routeTables = data.Response;
+			fixBlackHoles(region);
+		  } else {
+			$('#primary-div').append("<br>Failed to fetch route tables!");
+		  }
+		}).fail(function (jqXHR, textStatus, errorThrown) {
+		  $('#primary-div').append("<br>Failed to fetch route tables!");
+		});
+	  }
+	  
+	  function fixBlackHoles(region){
+		$.ajax({
+		  type: "POST",
+		  async: true,
+		  dataType: "json",
+		  url: '/fixBlackHoles',
+		  data: {
+			"region" : region,
+			"nat_instances" : natInstances,
+			"subnets" : subnets,
+			"route_tables" : routeTables
+		  }
+		}).done(function (data) {
+		  if (data.Success){
+			$('#primary-div').append("<br>Fixed black holes");
+			$('#primary-div').append("<br>" + data.Message);
+		  } else {
+			$('#primary-div').append("<br>Failed to fix black holes!");
+			$('#primary-div').append("<br>" + data.Message);
+		  }
+		}).fail(function (jqXHR, textStatus, errorThrown) {
+		  $('#primary-div').append("<br>Failed to fix black holes!");
+		  $('#primary-div').append("<br>" + data.Message);
+		});
+	  }
+	</script>
   </head>
-  <body>
-	<div>This is NAT Test</div>
+  <body onload="checkNATAllocation()">
+	<div id="primary-div"></div>
   </body>
 </html>
