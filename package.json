@@ -1,0 +1,8 @@
+{
+  "name": "NAT_Problem",
+  "version": "1.0.0",
+  "keywords": ["util", "functional", "server", "client", "browser"],
+  "author": "cbhattacharjee",
+  "contributors": [],
+  "dependencies": {}
+}
