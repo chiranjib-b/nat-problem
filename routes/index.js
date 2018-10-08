@@ -91,22 +91,24 @@ router.post('/fixBlackHoles', function (req, res) {
 	rt.Routes.forEach(route => {
 	  if (route["DestinationCidrBlock"] === "0.0.0.0/0" && route["State"] === "blackhole") {
 		/* This means it is a route which dictates traffic to NAT instance and is broken */
-		rt.Associations.forEach(asc => {
-		  if (asc.Main === "false") {
-			subnetsToFix.push(asc.SubnetId);
-			var params = {
-			  AssociationId: asc.RouteTableAssociationId,
-			  DryRun: false
-			};
-			ec2.disassociateRouteTable(params).promise()
-					.then(data => {
-					  console.log(data);
-					})
-					.catch(err => {
-					  console.error(err, err.stack);
-					});
-		  }
-		});
+		if (typeof rt.Associations !== "undefined") {
+		  rt.Associations.forEach(asc => {
+			if (asc.Main === "false") {
+			  subnetsToFix.push(asc.SubnetId);
+			  var params = {
+				AssociationId: asc.RouteTableAssociationId,
+				DryRun: false
+			  };
+			  ec2.disassociateRouteTable(params).promise()
+					  .then(data => {
+						console.log(data);
+					  })
+					  .catch(err => {
+						console.error(err, err.stack);
+					  });
+			}
+		  });
+		}
 	  }
 	});
   });
@@ -136,13 +138,13 @@ router.post('/fixBlackHoles', function (req, res) {
 	  });
 	});
   });
-  
+
   var available = 0;
-  Object.keys(workingRTInAZ).forEach(az=> {
+  Object.keys(workingRTInAZ).forEach(az => {
 	available += workingRTInAZ[az].length;
   });
-  
-  if (available === 0){
+
+  if (available === 0) {
 	res.send({Success: false, Message: "No healthy NAT found to attach!"});
 	return;
   }
@@ -172,7 +174,7 @@ router.post('/fixBlackHoles', function (req, res) {
 		  SubnetId: subnetId
 		};
 		messages.push("Associating: " + JSON.stringify(params));
-		ec2.associateRouteTable.promise()
+		ec2.associateRouteTable(params).promise()
 				.then(data => {
 				  console.log(data);
 				})
